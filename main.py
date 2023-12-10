@@ -214,16 +214,16 @@ try:
             transcribed_text = memory.update_memories(transcribed_text, memories)
             logging.info(f"Text passed to NPC: {transcribed_text}")
 
-                # get character's response
-                if transcribed_text:
-                    messages = asyncio.run(get_response(transcribed_text, messages, synthesizer, characters, radiant_dialogue))
+            # get character's response
+            if transcribed_text:
+                messages = asyncio.run(get_response(transcribed_text, messages, synthesizer, characters, radiant_dialogue))
 
-                # if the conversation is becoming too long, save the conversation to memory and reload
-                current_conversation_limit_pct = 0.45
-                if chat_response.num_tokens_from_messages(messages[1:], model=config.llm) > (round(tokens_available*current_conversation_limit_pct,0)):
-                    conversation_summary_file, context, messages = game_state_manager.reload_conversation(config, encoding, synthesizer, chat_manager, messages, characters.active_characters, tokens_available, token_limit, location, in_game_time, convo_id)
-                    # continue conversation
-                    messages = asyncio.run(get_response(f"{character.name}?", context, synthesizer, characters, radiant_dialogue))
+            # if the conversation is becoming too long, save the conversation to memory and reload
+            current_conversation_limit_pct = 0.45
+            if chat_response.num_tokens_from_messages(messages[1:], model=config.llm) > (round(tokens_available*current_conversation_limit_pct,0)):
+                conversation_summary_file, context, messages = game_state_manager.reload_conversation(config, encoding, synthesizer, chat_manager, messages, characters.active_characters, tokens_available, token_limit, location, in_game_time, convo_id)
+                # continue conversation
+                messages = asyncio.run(get_response(f"{character.name}?", context, synthesizer, characters, radiant_dialogue))
 
 except Exception as e:
     try:
