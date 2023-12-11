@@ -12,7 +12,6 @@ import chromadb
 
 class Memory:
     def __init__(self, config):
-        loop = asyncio.new_event_loop()
         self.config = config
         if self.config.vector_memory_enabled == '1' and self.config.vector_memory_chromadb_c_s == '1':
             # Start chromadb and don't wait 
