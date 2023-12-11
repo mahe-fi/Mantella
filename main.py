@@ -204,9 +204,15 @@ try:
                     game_state_manager.end_conversation(conversation_ended, config, encoding, synthesizer, chat_manager, messages, characters.active_characters, tokens_available)
                     break
 
-                # Let the player know that they were heard
-                #audio_file = synthesizer.synthesize(character.info['voice_model'], character.info['skyrim_voice_folder'], 'Beep boop. Let me think.')
-                #chat_manager.save_files_to_voice_folders([audio_file, 'Beep boop. Let me think.'])
+            # Let the player know that they were heard
+            #audio_file = synthesizer.synthesize(character.info['voice_model'], character.info['skyrim_voice_folder'], 'Beep boop. Let me think.')
+            #chat_manager.save_files_to_voice_folders([audio_file, 'Beep boop. Let me think.'])
+
+            # add in-game events to player's response
+            memories = memory.recall(character_info=character_info, convo_id=convo_id, location=location, relationship=relationship, time=in_game_time, player_comment=transcript_cleaned)
+            transcribed_text = game_state_manager.update_game_events(transcribed_text)
+            transcribed_text = memory.update_memories(transcribed_text, memories)
+            logging.info(f"Text passed to NPC: {transcribed_text}")
 
                 # get character's response
                 if transcribed_text:

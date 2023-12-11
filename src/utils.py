@@ -98,13 +98,13 @@ def get_time_group(in_game_time):
 
 def get_trust_desc(trust_level, relationship_rank):
     if relationship_rank == 0:
-        if trust_level < 1:
+        if int(trust_level) < 1:
             trust = 'a stranger'
-        elif trust_level < 10:
+        elif int(trust_level) < 10:
             trust = 'an acquaintance'
-        elif trust_level < 50:
+        elif int(trust_level) < 50:
             trust = 'a friend'
-        elif trust_level >= 50:
+        elif int(trust_level) >= 50:
             trust = 'a close friend'
     elif relationship_rank == 4:
         trust = 'a lover'

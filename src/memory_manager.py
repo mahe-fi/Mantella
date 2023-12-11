@@ -41,7 +41,7 @@ class Memory:
     @utils.time_it
     def memorize(self, convo_id, character_info, location, time, relationship='a stranger', character_comment='', player_comment=''):
         time_desc = utils.get_time_group(time)
-        memory_str = f'{character_info["name"]} was talking to the player, {relationship} {time_desc} in {location}.\n {character_info["name"]} said: "{character_comment}".\n The player responded: "{player_comment}"'
+        memory_str = f'It was {time_desc} in {location} {character_info["name"]} was talking with {relationship} the player.\n {character_info["name"]} said: "{character_comment}".\n The player responded: "{player_comment}"'
         try:
             collection = self._db_client.get_or_create_collection(name=_collection_name(character_info['name']), metadata={"hnsw:space": "cosine"})
             collection.add(documents=[memory_str], metadatas=[
@@ -55,29 +55,29 @@ class Memory:
         time_desc = utils.get_time_group(time)
         query_str =  f'{time_desc} in {location}.\n The player meets {relationship} {character_info["name"]}.'
         if player_comment is not None and len(player_comment) > 0:
-            query_str = f'It is {time_desc} in {location}.\n The player is talking to {relationship} {character_info["name"]}.\n The player says: {player_comment}"'
+            query_str = f'It is {time_desc} in {location}.\n {character_info["name"]} is talking with {relationship} the player.\n The player says: {player_comment}"'
         try:
             collection = self._db_client.get_collection(name=_collection_name(character_info['name']))
             logging.info(f'Recall query {query_str}')
             logging.info(f'There are {collection.count()} memories')
             result = collection.query(query_texts=[query_str], 
                                       where={
-                                          convo_id: {
+                                          'convo_id': {
                                               '$ne': convo_id
                                           }
                                       },
-                                      include=["documents"],
+                                      include=['documents', 'distances'],
                                       n_results=3)
-            logging.info(f'Recalled memories {result}')
-            return result["documents"]
+            return result["documents"][0]
         except Exception as e:
             logging.error(f'Error loading memories from vectordb: {e}')
             return None
         
     def update_memories(self, message, memories):
         if len(memories) > 0:
-            mem = 'Below are your memories from past conversations:\n%s}' % "".join(memories, "\n\n")
+            mem = 'Below are your memories from past conversations:\n\n%s}' % "\n\n".join(memories)
             message = mem + '\n' + message
+        return message
 
 def _collection_name(character_name: str): 
     return character_name.lower().translate(str.maketrans('', '', string.punctuation + string.whitespace + string.digits))

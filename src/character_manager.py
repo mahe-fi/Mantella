@@ -73,7 +73,7 @@ class Character:
 
             context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, len(previous_conversations), previous_conversation_summaries, convo_id=convo_id)
         else:
-            context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, convo_id=convo_id)
+            context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, convo_id=convo_id=convo_id)
 
         return context
     
@@ -87,7 +87,7 @@ class Character:
         memories = self.memory.recall(convo_id, self.info, location, time, trust)
         memory_str = ''
         if memories is not None and len(memories) > 0:
-            memory_str = "Below are your memories of past interactions:\n\n%s" % "\n\n".join(memories[0])
+            memory_str = "Below are your memories of past interactions:\n\n%s" % "\n\n".join(memories)
             conversation_summary = ""
 
         time_group = utils.get_time_group(time)
