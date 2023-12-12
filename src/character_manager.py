@@ -79,7 +79,7 @@ class Character:
     
 
     def create_context(self, prompt, location='Skyrim', time='12', active_characters=None, token_limit=4096, radiant_dialogue='false', trust_level=0, conversation_summary='', prompt_limit_pct=0.75, convo_id=uuid.uuid4()):
-        trust = utils.get_trust_desc(trust_level, self.relationship_rank)
+        trust = utils.get_trust_desc(trust_level if trust_level > 0 else self.memory.conversation_count(self.info['name']), self.relationship_rank)
         if len(conversation_summary) > 0:
             conversation_summary = f"Below is a summary for each of your previous conversations:\n\n{conversation_summary}"
             memories = []

@@ -186,7 +186,7 @@ try:
                     transcribed_text = game_state_manager.update_game_events(transcribed_text)
                     logging.info(f"Text passed to NPC: {transcribed_text}")
 
-                relationship = utils.get_trust_desc(character.get_number_of_past_conversations(), character.relationship_rank) 
+                relationship = utils.get_trust_desc(memory.conversation_count(character.info['name']), character.relationship_rank) 
                 last_character_comment = ''
                 if len(messages) > 0:
                     for _, message in enumerate(messages):
@@ -208,8 +208,8 @@ try:
             #audio_file = synthesizer.synthesize(character.info['voice_model'], character.info['skyrim_voice_folder'], 'Beep boop. Let me think.')
             #chat_manager.save_files_to_voice_folders([audio_file, 'Beep boop. Let me think.'])
 
-            # add in-game events to player's response
-            memories = memory.recall(character_info=character_info, convo_id=convo_id, location=location, relationship=relationship, time=in_game_time, player_comment=transcript_cleaned)
+            # add in-game events and memories to player's response
+            memories = memory.recall(character_info=character_info, convo_id=convo_id, location=location, relationship=relationship, time=in_game_time, player_comment=transcript_cleaned, character_comment=messages[len(messages)-1]['content'])
             transcribed_text = game_state_manager.update_game_events(transcribed_text)
             transcribed_text = memory.update_memories(transcribed_text, memories)
             logging.info(f"Text passed to NPC: {transcribed_text}")
@@ -221,7 +221,7 @@ try:
                 # if the conversation is becoming too long, save the conversation to memory and reload
                 current_conversation_limit_pct = 0.45
                 if chat_response.num_tokens_from_messages(messages[1:], model=config.llm) > (round(tokens_available*current_conversation_limit_pct,0)):
-                    conversation_summary_file, context, messages = game_state_manager.reload_conversation(config, encoding, synthesizer, chat_manager, messages, characters.active_characters, tokens_available, token_limit, location, in_game_time)
+                    conversation_summary_file, context, messages = game_state_manager.reload_conversation(config, encoding, synthesizer, chat_manager, messages, characters.active_characters, tokens_available, token_limit, location, in_game_time, convo_id)
                     # continue conversation
                     messages = asyncio.run(get_response(f"{character.name}?", context, synthesizer, characters, radiant_dialogue))
 

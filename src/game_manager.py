@@ -378,7 +378,7 @@ class GameStateManager:
     
     
     @utils.time_it
-    def reload_conversation(self, config, encoding, synthesizer, chat_manager, messages, active_characters, tokens_available, token_limit, location, in_game_time):
+    def reload_conversation(self, config, encoding, synthesizer, chat_manager, messages, active_characters, tokens_available, token_limit, location, in_game_time, convo_id):
         """Restart conversation to save conversation to memory when token count is reaching its limit"""
 
         latest_character = list(active_characters.items())[-1][1]
@@ -411,7 +411,7 @@ class GameStateManager:
         prompt = config.prompt
         if len(keys) > 1:
             prompt = config.multi_npc_prompt
-        context = latest_character.set_context(prompt, location, in_game_time, active_characters, token_limit)
+        context = latest_character.set_context(prompt, location, in_game_time, active_characters, token_limit, convo_id=convo_id)
 
         # add previous few back and forths from last conversation
         messages_wo_system_prompt = messages[1:]

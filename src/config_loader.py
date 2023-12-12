@@ -114,6 +114,7 @@ https://github.com/art-from-the-machine/Mantella#issues-qa
             self.vector_memory_db_host = config['VectorMemory']['db_host']
             self.vector_memory_db_port = config['VectorMemory']['db_port']
             self.vector_memory_chromadb_c_s = config['VectorMemory']['chromadb_client_server']
+            self.vector_memory_embedding_model = config['VectorMemory']['embedding_model']
 
             self.prompt = config['Prompt']['prompt']
             self.multi_npc_prompt = config['Prompt']['multi_npc_prompt']
