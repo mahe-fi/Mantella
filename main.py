@@ -209,7 +209,7 @@ try:
             #chat_manager.save_files_to_voice_folders([audio_file, 'Beep boop. Let me think.'])
 
             # add in-game events and memories to player's response
-            memories = memory.recall(character_info=character_info, convo_id=convo_id, location=location, relationship=relationship, time=in_game_time, player_comment=transcript_cleaned, character_comment=messages[len(messages)-1]['content'])
+            memories = memory.recall(character_info=character_info, convo_id=convo_id, location=location, relationship=relationship, time=in_game_time, player_comment=transcript_cleaned, character_comment=last_character_comment)
             transcribed_text = game_state_manager.update_game_events(transcribed_text)
             transcribed_text = memory.update_memories(transcribed_text, memories)
             logging.info(f"Text passed to NPC: {transcribed_text}")

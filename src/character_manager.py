@@ -22,17 +22,6 @@ class Character:
         self.conversation_summary = ''
         self.memory = memory
 
-    def get_number_of_past_conversations(self): 
-        """Get number of past conversations with character"""
-        if os.path.exists(f"data/conversations/{self.name}"):
-            # get all files from the directory
-            files = os.listdir(f"data/conversations/{self.name}")
-            # filter only .txt files
-            txt_files = [f for f in files if f.endswith('.txt')]
-            return len(txt_files)
-        return 0
-
-
     def get_latest_conversation_summary_file_path(self):
         """Get latest conversation summary by file name suffix"""
 
