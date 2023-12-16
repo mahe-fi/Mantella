@@ -32,6 +32,7 @@ class Memory:
                 self._db_client = chromadb.PersistentClient(path=self.config.vector_memory_db_path)
 
             self.embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=self.config.vector_memory_embedding_model)
+            # Initialize sqlite3 connection for querying by metadata
             self.sqlite_connection = sqlite3.connect(f'{self.config.vector_memory_db_path}/chroma.sqlite3')
 
 
@@ -45,7 +46,7 @@ class Memory:
 
     @utils.time_it
     def memorize(self, convo_id, character, location, time, character_comment='', player_comment='', summary='', type='snippet'):
-        '''Memorize conversation (snippet or symmary) with provided metada'''
+        '''Memorize conversation fragment (snippet or symmary) with provided metada'''
         if self.config.vector_memory_enabled == '0':
             return
         time_desc = utils.get_time_group(time)
@@ -63,7 +64,7 @@ class Memory:
 
     @utils.time_it
     def recall(self, convo_id, character, location, time, character_comment: str = None, player_comment: str = None):
-        '''Recall memorized snippets. Provided metadata is used when constructing the query'''
+        '''Recall memorized fragments. Provided metadata is used when constructing the query to vector db'''
         if self.config.vector_memory_enabled == '0':
             return None
         time_desc = utils.get_time_group(time)
@@ -91,6 +92,7 @@ class Memory:
                                       n_results=5,
                                       include=['documents'])
             return result["documents"][0]
+
         except Exception as e:
             logging.error(f'Error loading memories from vectordb: {e}')
             return None
@@ -100,7 +102,17 @@ class Memory:
         if self.config.vector_memory_enabled == '0':
             return 0
         cur = self.sqlite_connection.cursor()
-        res = cur.execute("select count(distinct b.string_value) as convo_id from embedding_metadata a join embedding_metadata b on (a.id=b.id and b.key='convo_id') join embedding_metadata c on (a.id=c.id and c.key='type') where a.key='character' and a.string_value=:character and c.string_value='summary'", {"character": character_name})
+        query = """
+select count(distinct b.string_value) as convo_id 
+from 
+    embedding_metadata a 
+    join embedding_metadata b on (a.id=b.id and b.key='convo_id') 
+    join embedding_metadata c on (a.id=c.id and c.key='type') 
+where 
+    a.key='character' 
+    and a.string_value=:character 
+    and c.string_value='summary'"""        
+        res = cur.execute(query, {"character": character_name})
         return res.fetchone()[0]
 
     def update_memories(self, message, memories):
