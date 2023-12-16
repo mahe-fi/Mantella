@@ -44,11 +44,12 @@ class Memory:
             self._db_process.terminate()
 
     @utils.time_it
-    def memorize(self, convo_id, character, location, time, relationship='a stranger', character_comment='', player_comment='', summary='', type='snippet'):
+    def memorize(self, convo_id, character, location, time, character_comment='', player_comment='', summary='', type='snippet'):
         '''Memorize conversation (snippet or symmary) with provided metada'''
         if self.config.vector_memory_enabled == '0':
             return
         time_desc = utils.get_time_group(time)
+        relationship = utils.get_trust_desc(self.conversation_count(character.info['name']), character.relationship_rank) 
         memory_str = f'It was {time_desc} in {location}.\n{character.info["name"]} was talking with {relationship} the player.\n{character.info["name"]} said: "{character_comment}".\nThe player responded: "{player_comment}"'
         if type == 'summary':
             memory_str = f'It was {time_desc} in {location} {character.info["name"]} was talking with {relationship} the player.\n {summary}'
@@ -61,11 +62,12 @@ class Memory:
             logging.error(f'Error saving memory to vectordb: {e}')
 
     @utils.time_it
-    def recall(self, convo_id, character, location, time, relationship = 'a stranger', character_comment: str = None, player_comment: str = None):
+    def recall(self, convo_id, character, location, time, character_comment: str = None, player_comment: str = None):
         '''Recall memorized snippets. Provided metadata is used when constructing the query'''
         if self.config.vector_memory_enabled == '0':
             return None
         time_desc = utils.get_time_group(time)
+        relationship = utils.get_trust_desc(self.conversation_count(character.info['name']), character.relationship_rank) 
         query_str =  f'{time_desc} in {location}.\n The player meets {relationship} {character.info["name"]}.'
         if player_comment is not None and len(player_comment) > 0:
             query_str = f'It is {time_desc} in {location}.\n{character.info["name"]} is talking with {relationship} the player.\n{character.info["name"]} said: "{character_comment}".\nThe player responds: {player_comment}"'

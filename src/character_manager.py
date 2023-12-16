@@ -73,7 +73,7 @@ class Character:
             conversation_summary = f"Below is a summary for each of your previous conversations:\n\n{conversation_summary}"
             memories = []
         
-        memories = self.memory.recall(convo_id, self, location, time, trust)
+        memories = self.memory.recall(convo_id, self, location, time)
         memory_str = ''
         if memories is not None and len(memories) > 0:
             memory_str = "Below are your memories of past interactions:\n\n%s" % "\n\n".join(memories)

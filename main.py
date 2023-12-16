@@ -185,15 +185,12 @@ try:
                     # add in-game events to player's response
                     transcribed_text = game_state_manager.update_game_events(transcribed_text)
                     logging.info(f"Text passed to NPC: {transcribed_text}")
-
-                relationship = utils.get_trust_desc(memory.conversation_count(character.info['name']), character.relationship_rank) 
                 last_character_comment = ''
                 if len(messages) > 0:
                     for _, message in enumerate(messages):
                         if message['role'] == 'assistant':
                             last_character_comment = message['content']
-                memory.memorize(character_info=character_info, convo_id=convo_id, location=location, relationship=relationship, time=in_game_time, character_comment=last_character_comment, player_comment=transcript_cleaned)
-                memories = memory.recall(character_info=character_info, convo_id=convo_id, location=location, relationship=relationship, time=in_game_time, player_comment=transcript_cleaned)
+                memory.memorize(convo_id, character, location, in_game_time, character_comment=last_character_comment, player_comment=transcript_cleaned)
 
                 # check if conversation has ended again after player input
                 with open(f'{config.game_path}/_mantella_end_conversation.txt', 'r', encoding='utf-8') as f:
@@ -205,7 +202,7 @@ try:
                 # Memorize the conversation summary to all active characters in conversation
                 for character in characters.active_characters.values():
                     relationship = utils.get_trust_desc(memory.conversation_count(character.info['name']), character.relationship_rank) 
-                    memory.memorize(convo_id, character, location, in_game_time, relationship, summary=summary, type='summary')
+                    memory.memorize(convo_id, character, location, in_game_time, summary=summary, type='summary')
                 break
 
             # Let the player know that they were heard
@@ -213,7 +210,7 @@ try:
             #chat_manager.save_files_to_voice_folders([audio_file, 'Beep boop. Let me think.'])
 
             # add in-game events and memories to player's response
-            memories = memory.memorize(convo_id, character, location, in_game_time, relationship, player_comment=transcript_cleaned, character_comment=last_character_comment)
+            memories = memory.recall(convo_id, character, location, in_game_time, player_comment=transcript_cleaned, character_comment=last_character_comment)
             transcribed_text = game_state_manager.update_game_events(transcribed_text)
             transcribed_text = memory.update_memories(transcribed_text, memories)
             logging.info(f"Text passed to NPC: {transcribed_text}")
