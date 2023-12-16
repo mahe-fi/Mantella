@@ -44,33 +44,33 @@ class Memory:
             self._db_process.terminate()
 
     @utils.time_it
-    def memorize(self, convo_id, character_info, location, time, relationship='a stranger', character_comment='', player_comment='', summary='', type='snippet'):
-        '''Memorize conversation snippet with provided metada'''
+    def memorize(self, convo_id, character, location, time, relationship='a stranger', character_comment='', player_comment='', summary='', type='snippet'):
+        '''Memorize conversation (snippet or symmary) with provided metada'''
         if self.config.vector_memory_enabled == '0':
             return
         time_desc = utils.get_time_group(time)
-        memory_str = f'It was {time_desc} in {location}.\n{character_info["name"]} was talking with {relationship} the player.\n{character_info["name"]} said: "{character_comment}".\nThe player responded: "{player_comment}"'
+        memory_str = f'It was {time_desc} in {location}.\n{character.info["name"]} was talking with {relationship} the player.\n{character.info["name"]} said: "{character_comment}".\nThe player responded: "{player_comment}"'
         if type == 'summary':
-            memory_str = f'It was {time_desc} in {location} {character_info["name"]} was talking with {relationship} the player.\n {summary}'
+            memory_str = f'It was {time_desc} in {location} {character.info["name"]} was talking with {relationship} the player.\n {summary}'
         try:
-            collection = self._db_client.get_or_create_collection(name=_collection_name(character_info['name']), metadata={"hnsw:space": "cosine"}, embedding_function=self.embedding_function)
+            collection = self._db_client.get_or_create_collection(name=_collection_name(character.info['name']), metadata={"hnsw:space": "cosine"}, embedding_function=self.embedding_function)
             collection.add(documents=[memory_str], metadatas=[
-                {'convo_id': convo_id, 'location': location, 'character': character_info['name'], 'type': type}
+                {'convo_id': convo_id, 'location': location, 'character': character.info['name'], 'type': type}
             ], ids=[uuid.uuid4().hex])
         except Exception as e:
             logging.error(f'Error saving memory to vectordb: {e}')
 
     @utils.time_it
-    def recall(self, convo_id, character_info, location, time, relationship = 'a stranger', character_comment: str = None, player_comment: str = None):
+    def recall(self, convo_id, character, location, time, relationship = 'a stranger', character_comment: str = None, player_comment: str = None):
         '''Recall memorized snippets. Provided metadata is used when constructing the query'''
         if self.config.vector_memory_enabled == '0':
             return None
         time_desc = utils.get_time_group(time)
-        query_str =  f'{time_desc} in {location}.\n The player meets {relationship} {character_info["name"]}.'
+        query_str =  f'{time_desc} in {location}.\n The player meets {relationship} {character.info["name"]}.'
         if player_comment is not None and len(player_comment) > 0:
-            query_str = f'It is {time_desc} in {location}.\n{character_info["name"]} is talking with {relationship} the player.\n{character_info["name"]} said: "{character_comment}".\nThe player responds: {player_comment}"'
+            query_str = f'It is {time_desc} in {location}.\n{character.info["name"]} is talking with {relationship} the player.\n{character.info["name"]} said: "{character_comment}".\nThe player responds: {player_comment}"'
         try:
-            collection = self._db_client.get_collection(name=_collection_name(character_info['name']), embedding_function=self.embedding_function)
+            collection = self._db_client.get_collection(name=_collection_name(character.info['name']), embedding_function=self.embedding_function)
             result = collection.query(query_texts=[query_str], 
                                       where={
                                           '$and': [
@@ -81,11 +81,12 @@ class Memory:
                                               },
                                               {
                                                    'character': {
-                                                       '$eq': character_info['name']
+                                                       '$eq': character.info['name']
                                                    }
                                               }
                                           ]
                                       },
+                                      n_results=5,
                                       include=['documents'])
             return result["documents"][0]
         except Exception as e:
@@ -97,7 +98,7 @@ class Memory:
         if self.config.vector_memory_enabled == '0':
             return 0
         cur = self.sqlite_connection.cursor()
-        res = cur.execute("select count(distinct b.string_value) as convo_id from embedding_metadata a join embedding_metadata b on (a.id=b.id and b.key='convo_id') where a.key='character' and a.string_value=:character", {"character": character_name})
+        res = cur.execute("select count(distinct b.string_value) as convo_id from embedding_metadata a join embedding_metadata b on (a.id=b.id and b.key='convo_id') join embedding_metadata c on (a.id=c.id and c.key='type') where a.key='character' and a.string_value=:character and c.string_value='summary'", {"character": character_name})
         return res.fetchone()[0]
 
     def update_memories(self, message, memories):

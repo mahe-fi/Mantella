@@ -374,7 +374,7 @@ class GameStateManager:
         self.write_game_info('_mantella_end_conversation', 'True')
         time.sleep(5) # wait a few seconds for everything to register
 
-        return None
+        return summary
     
     
     @utils.time_it

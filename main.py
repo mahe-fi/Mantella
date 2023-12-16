@@ -199,17 +199,21 @@ try:
                 with open(f'{config.game_path}/_mantella_end_conversation.txt', 'r', encoding='utf-8') as f:
                     conversation_ended = f.readline().strip()
 
-                # check if user is ending conversation
-                if (transcriber.activation_name_exists(transcript_cleaned, config.end_conversation_keyword.lower())) or (transcriber.activation_name_exists(transcript_cleaned, 'good bye')) or (conversation_ended.lower() == 'true'):
-                    game_state_manager.end_conversation(conversation_ended, config, encoding, synthesizer, chat_manager, messages, characters.active_characters, tokens_available)
-                    break
+            # check if user is ending conversation
+            if (transcriber.activation_name_exists(transcript_cleaned, config.end_conversation_keyword.lower())) or (transcriber.activation_name_exists(transcript_cleaned, 'good bye')) or (conversation_ended.lower() == 'true'):
+                summary = game_state_manager.end_conversation(conversation_ended, config, encoding, synthesizer, chat_manager, messages, characters.active_characters, tokens_available)
+                # Memorize the conversation summary to all active characters in conversation
+                for character in characters.active_characters.values():
+                    relationship = utils.get_trust_desc(memory.conversation_count(character.info['name']), character.relationship_rank) 
+                    memory.memorize(convo_id, character, location, in_game_time, relationship, summary=summary, type='summary')
+                break
 
             # Let the player know that they were heard
             #audio_file = synthesizer.synthesize(character.info['voice_model'], character.info['skyrim_voice_folder'], 'Beep boop. Let me think.')
             #chat_manager.save_files_to_voice_folders([audio_file, 'Beep boop. Let me think.'])
 
             # add in-game events and memories to player's response
-            memories = memory.recall(character_info=character_info, convo_id=convo_id, location=location, relationship=relationship, time=in_game_time, player_comment=transcript_cleaned, character_comment=last_character_comment)
+            memories = memory.memorize(convo_id, character, location, in_game_time, relationship, player_comment=transcript_cleaned, character_comment=last_character_comment)
             transcribed_text = game_state_manager.update_game_events(transcribed_text)
             transcribed_text = memory.update_memories(transcribed_text, memories)
             logging.info(f"Text passed to NPC: {transcribed_text}")

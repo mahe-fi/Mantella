@@ -73,7 +73,7 @@ class Character:
             conversation_summary = f"Below is a summary for each of your previous conversations:\n\n{conversation_summary}"
             memories = []
         
-        memories = self.memory.recall(convo_id, self.info, location, time, trust)
+        memories = self.memory.recall(convo_id, self, location, time, trust)
         memory_str = ''
         if memories is not None and len(memories) > 0:
             memory_str = "Below are your memories of past interactions:\n\n%s" % "\n\n".join(memories)
@@ -162,7 +162,7 @@ class Character:
         context = [{"role": "system", "content": character_desc}]
         return context
 
-    def save_conversation(self, encoding, messages, tokens_available, llm, summary=None, summary_limit_pct=0.45):
+    def save_conversation(self, encoding, messages, tokens_available, llm, summary=None, summary_limit_pct=0.45, convo_id=uuid.uuid4()):
         if self.is_generic_npc:
             logging.info('A summary will not be saved for this generic NPC.')
             return None
