@@ -60,7 +60,12 @@ class Character:
 
             self.conversation_summary = previous_conversation_summaries
 
-            context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, len(previous_conversations), previous_conversation_summaries, convo_id=convo_id)
+            trust_level = len(previous_conversations) if not self.memory.enabled else self.memory.conversation_count(self.name)
+
+            if not self.memory.enabled and len(previous_conversation_summaries) > 0:
+                previous_conversation_summaries = f"Below is a summary for each of your previous conversations:\n\n{previous_conversation_summaries}"
+
+            context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, trust_level, previous_conversation_summaries, convo_id=convo_id)
         else:
             context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, convo_id=convo_id=convo_id)
 
@@ -69,16 +74,7 @@ class Character:
 
     def create_context(self, prompt, location='Skyrim', time='12', active_characters=None, token_limit=4096, radiant_dialogue='false', trust_level=0, conversation_summary='', prompt_limit_pct=0.75, convo_id=uuid.uuid4()):
         trust = utils.get_trust_desc(trust_level if trust_level > 0 else self.memory.conversation_count(self.info['name']), self.relationship_rank)
-        if len(conversation_summary) > 0:
-            conversation_summary = f"Below is a summary for each of your previous conversations:\n\n{conversation_summary}"
-            memories = []
-        
-        memories = self.memory.recall(convo_id, self, location, time)
-        memory_str = ''
-        if memories is not None and len(memories) > 0:
-            memory_str = "Below are your memories of past interactions:\n\n%s" % "\n\n".join(memories)
-            conversation_summary = ""
-
+    
         time_group = utils.get_time_group(time)
 
         keys = list(active_characters.keys())
@@ -93,7 +89,6 @@ class Character:
                 time_group=time_group, 
                 language=self.language, 
                 conversation_summary=conversation_summary,
-                memories=memory_str
             )
         else: # Multi NPC prompt
             if radiant_dialogue == 'false': # don't mention player if radiant dialogue

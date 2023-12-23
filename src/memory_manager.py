@@ -13,7 +13,8 @@ from chromadb.utils import embedding_functions
 class Memory:
     def __init__(self, config):
         self.config = config
-        if self.config.vector_memory_enabled == '1':
+        self.enabled = self.config.vector_memory_enabled == '1'
+        if self.enabled:
             if self.config.vector_memory_chromadb_c_s == '1':
                 # Start chromadb and don't wait 
                 try:
@@ -47,7 +48,7 @@ class Memory:
     @utils.time_it
     def memorize(self, convo_id, character, location, time, character_comment='', player_comment='', summary='', type='snippet'):
         '''Memorize conversation fragment (snippet or symmary) with provided metada'''
-        if self.config.vector_memory_enabled == '0':
+        if not self.enabled:
             return
         time_desc = utils.get_time_group(time)
         relationship = utils.get_trust_desc(self.conversation_count(character.info['name']), character.relationship_rank) 
@@ -63,43 +64,45 @@ class Memory:
             logging.error(f'Error saving memory to vectordb: {e}')
 
     @utils.time_it
-    def recall(self, convo_id, character, location, time, character_comment: str = None, player_comment: str = None):
-        '''Recall memorized fragments. Provided metadata is used when constructing the query to vector db'''
-        if self.config.vector_memory_enabled == '0':
+    def recall(self, convo_id, character, location, time, messages, player_comment: str = None):
+        '''Update the prompt at the start of the conversation to contain new memories related to the most recent comments in the conversation'''
+        if not self.enabled:
             return None
         time_desc = utils.get_time_group(time)
         relationship = utils.get_trust_desc(self.conversation_count(character.info['name']), character.relationship_rank) 
         query_str =  f'{time_desc} in {location}.\n The player meets {relationship} {character.info["name"]}.'
         if player_comment is not None and len(player_comment) > 0:
-            query_str = f'It is {time_desc} in {location}.\n{character.info["name"]} is talking with {relationship} the player.\n{character.info["name"]} said: "{character_comment}".\nThe player responds: {player_comment}"'
-        try:
-            collection = self._db_client.get_collection(name=_collection_name(character.info['name']), embedding_function=self.embedding_function)
-            result = collection.query(query_texts=[query_str], 
-                                      where={
-                                          '$and': [
-                                              {
-                                                  'convo_id': {
-                                                      '$ne': convo_id
-                                                   },
-                                              },
-                                              {
-                                                   'character': {
-                                                       '$eq': character.info['name']
-                                                   }
-                                              }
-                                          ]
-                                      },
-                                      n_results=5,
-                                      include=['documents'])
-            return result["documents"][0]
+            query_str = f'It is {time_desc} in {location}.\n{character.info["name"]} is talking with {relationship} the player.\n{character.info["name"]} said: "{messages[-1]["content"]}".\nThe player responds: {player_comment}"'
 
-        except Exception as e:
-            logging.error(f'Error loading memories from vectordb: {e}')
-            return None
+        logging.info(f'Finding {character.info["name"]}\'s memories using query "{query_str}"')
+        collection = self._db_client.get_or_create_collection(name=_collection_name(character.info['name']), embedding_function=self.embedding_function)
+        result = collection.query(query_texts=[query_str], 
+                                    where={
+                                        '$and': [
+                                            {
+                                                'convo_id': {
+                                                    '$ne': convo_id
+                                                },
+                                            },
+                                            {
+                                                'character': {
+                                                    '$eq': character.info['name']
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    n_results=5,
+                                    include=['documents'])
+        memories = result["documents"][0]
+        mem = "You have never met the player before"
+        if len(memories) > 0 :
+            mem = 'Below are your memories from past conversations:\n\n%s\n\n' % "\n\n".join(memories)
+        context = character.create_context(self.config.prompt, location, time, {character.name: character}, self.config.max_tokens, self.conversation_count(character.info['name']), mem, convo_id=convo_id)
+        messages[0]['content'] = context[0]['content']
         
     def conversation_count(self, character_name):
         '''Return # of conversations character has had with player in the past'''
-        if self.config.vector_memory_enabled == '0':
+        if not self.enabled:
             return 0
         cur = self.sqlite_connection.cursor()
         query = """
@@ -114,13 +117,6 @@ where
     and c.string_value='summary'"""        
         res = cur.execute(query, {"character": character_name})
         return res.fetchone()[0]
-
-    def update_memories(self, message, memories):
-        '''Append given memories to propmt that will be given to LLM'''
-        if memories is not None and len(memories) > 0:
-            mem = 'Below are your memories from past conversations:\n\n%s}' % "\n\n".join(memories)
-            message = mem + '\n' + message
-        return message
 
 def _collection_name(character_name: str): 
     return character_name.lower().translate(str.maketrans('', '', string.punctuation + string.whitespace + string.digits))

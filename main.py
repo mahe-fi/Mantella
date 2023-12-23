@@ -89,7 +89,8 @@ try:
             conversation_started_radiant = radiant_dialogue
         
         context = character.set_context(config.prompt, location, in_game_time, characters.active_characters, token_limit, radiant_dialogue, convo_id)
-
+        memories = memory.recall(convo_id, character, location, in_game_time, messages=context)
+        logging.info(f"Memory updated prompt: {context}")
         tokens_available = token_limit - chat_response.num_tokens_from_messages(context, model=config.llm)
         
         messages = context.copy()
@@ -210,9 +211,9 @@ try:
             #chat_manager.save_files_to_voice_folders([audio_file, 'Beep boop. Let me think.'])
 
             # add in-game events and memories to player's response
-            memories = memory.recall(convo_id, character, location, in_game_time, player_comment=transcript_cleaned, character_comment=last_character_comment)
+            memories = memory.recall(convo_id, character, location, in_game_time, messages=messages, player_comment=transcript_cleaned)
             transcribed_text = game_state_manager.update_game_events(transcribed_text)
-            transcribed_text = memory.update_memories(transcribed_text, memories)
+            logging.info(f"Memory updated prompt: {messages[0]['content']}")
             logging.info(f"Text passed to NPC: {transcribed_text}")
 
             # get character's response
