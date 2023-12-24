@@ -235,10 +235,11 @@ class Character:
         return new_conversation_summary
     
 
-    def summarize_conversation(self, conversation, llm, prompt=None):
+    def summarize_conversation(self, conversation, llm, min_length=6, is_fragment=False, prompt=None):
         summary = ''
-        if len(conversation) > 5:
-            conversation = conversation[3:-2] # drop the context (0) hello (1,2) and "Goodbye." (-2, -1) lines
+        if len(conversation) >= min_length:
+            if not is_fragment:
+                conversation = conversation[3:-2] # drop the context (0) hello (1,2) and "Goodbye." (-2, -1) lines
             if prompt == None:
                 prompt = f"You are tasked with summarizing the conversation between {self.name} (the assistant) and the player (the user) / other characters. These conversations take place in Skyrim. It is not necessary to comment on any mixups in communication such as mishearings. Text contained within asterisks state in-game events. Please summarize the conversation into a single paragraph in {self.language}."
             context = [{"role": "system", "content": prompt}]

@@ -1,3 +1,4 @@
+import asyncio
 import atexit
 import string
 import uuid
@@ -46,22 +47,26 @@ class Memory:
             self._db_process.terminate()
 
     @utils.time_it
-    def memorize(self, convo_id, character, location, time, character_comment='', player_comment='', summary='', type='snippet'):
-        '''Memorize conversation fragment (snippet or symmary) with provided metada'''
+    def memorize(self, convo_id, character, location, time, messages=[], summary='', type='fragment'):
+        '''Memorize conversation fragment (fragment or symmary) with provided metada. 
+           Fragments are summarized from 4 last comments in the conversation transcript'''
         if not self.enabled:
             return
+        if len(messages[3:]) >= 4:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._summarize_and_store(convo_id, character, location, time, messages, summary, type))
+
+    async def _summarize_and_store(self, convo_id, character, location, time, messages, summary='', type='fragment') :
+        # Summarize 2 latest interactions starting after greetings
+        if type == 'fragment' and len(messages[3:]) > 4:
+            summary = character.summarize_conversation(messages[-4:], self.config.llm, 4, is_fragment=True)
         time_desc = utils.get_time_group(time)
         relationship = utils.get_trust_desc(self.conversation_count(character.info['name']), character.relationship_rank) 
-        memory_str = f'It was {time_desc} in {location}.\n{character.info["name"]} was talking with {relationship} the player.\n{character.info["name"]} said: "{character_comment}".\nThe player responded: "{player_comment}"'
-        if type == 'summary':
-            memory_str = f'It was {time_desc} in {location} {character.info["name"]} was talking with {relationship} the player.\n {summary}'
-        try:
-            collection = self._db_client.get_or_create_collection(name=_collection_name(character.info['name']), metadata={"hnsw:space": "cosine"}, embedding_function=self.embedding_function)
-            collection.add(documents=[memory_str], metadatas=[
-                {'convo_id': convo_id, 'location': location, 'character': character.info['name'], 'type': type}
-            ], ids=[uuid.uuid4().hex])
-        except Exception as e:
-            logging.error(f'Error saving memory to vectordb: {e}')
+        memory_str = f'{time_desc} in {location}. {summary}'
+        collection = self._db_client.get_or_create_collection(name=_collection_name(character.info['name']), metadata={"hnsw:space": "cosine"}, embedding_function=self.embedding_function)
+        collection.add(documents=[memory_str], metadatas=[
+            {'convo_id': convo_id, 'location': location, 'character': character.info['name'], 'type': type}
+        ], ids=[uuid.uuid4().hex])
 
     @utils.time_it
     def recall(self, convo_id, character, location, time, messages, player_comment: str = None):
@@ -97,7 +102,7 @@ class Memory:
         mem = "You have never met the player before"
         if len(memories) > 0 :
             mem = 'Below are your memories from past conversations:\n\n%s\n\n' % "\n\n".join(memories)
-        context = character.create_context(self.config.prompt, location, time, {character.name: character}, self.config.max_tokens, self.conversation_count(character.info['name']), mem, convo_id=convo_id)
+        context = character.create_context(self.config.prompt, location, time, {character.name: character}, self.config.custom_token_count, self.conversation_count(character.info['name']), mem, convo_id=convo_id)
         messages[0]['content'] = context[0]['content']
         
     def conversation_count(self, character_name):
@@ -110,13 +115,14 @@ select count(distinct b.string_value) as convo_id
 from 
     embedding_metadata a 
     join embedding_metadata b on (a.id=b.id and b.key='convo_id') 
-    join embedding_metadata c on (a.id=c.id and c.key='type') 
 where 
     a.key='character' 
-    and a.string_value=:character 
-    and c.string_value='summary'"""        
+    and a.string_value=:character
+"""
         res = cur.execute(query, {"character": character_name})
-        return res.fetchone()[0]
+        num = res.fetchone()[0]
+        logging.info(f'{character_name} has {num} conversations with player')
+        return num
 
 def _collection_name(character_name: str): 
     return character_name.lower().translate(str.maketrans('', '', string.punctuation + string.whitespace + string.digits))
