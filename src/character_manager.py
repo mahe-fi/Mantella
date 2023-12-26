@@ -67,7 +67,7 @@ class Character:
 
             context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, trust_level, previous_conversation_summaries, convo_id=convo_id)
         else:
-            context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, convo_id=convo_id=convo_id)
+            context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, convo_id=convo_id)
 
         return context
     
