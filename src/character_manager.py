@@ -2,11 +2,13 @@ import os
 import logging
 import json
 import time
+import uuid
 import src.utils as utils
 import src.chat_response as chat_response
+import src.memory_manager as memory_manager
 
 class Character:
-    def __init__(self, info, language, is_generic_npc):
+    def __init__(self, info, language, is_generic_npc, memory: memory_manager.Memory):
         self.info = info
         self.name = info['name']
         self.bio = info['bio']
@@ -18,7 +20,7 @@ class Character:
         self.conversation_history_file = f"data/conversations/{self.name}/{self.name}.json"
         self.conversation_summary_file = self.get_latest_conversation_summary_file_path()
         self.conversation_summary = ''
-
+        self.memory = memory
 
     def get_latest_conversation_summary_file_path(self):
         """Get latest conversation summary by file name suffix"""
@@ -43,7 +45,7 @@ class Character:
         return conversation_summary_file
     
 
-    def set_context(self, prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue):
+    def set_context(self, prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, convo_id):
         # if conversation history exists, load it
         if os.path.exists(self.conversation_history_file):
             with open(self.conversation_history_file, 'r', encoding='utf-8') as f:
@@ -58,32 +60,21 @@ class Character:
 
             self.conversation_summary = previous_conversation_summaries
 
-            context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, len(previous_conversations), previous_conversation_summaries)
+            trust_level = len(previous_conversations) if not self.memory.enabled else self.memory.conversation_count(self.name)
+
+            if not self.memory.enabled and len(previous_conversation_summaries) > 0:
+                previous_conversation_summaries = f"Below is a summary for each of your previous conversations:\n\n{previous_conversation_summaries}"
+
+            context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, trust_level, previous_conversation_summaries, convo_id=convo_id)
         else:
-            context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue)
+            context = self.create_context(prompt, location, in_game_time, active_characters, token_limit, radiant_dialogue, convo_id=convo_id)
 
         return context
     
 
-    def create_context(self, prompt, location='Skyrim', time='12', active_characters=None, token_limit=4096, radiant_dialogue='false', trust_level=0, conversation_summary='', prompt_limit_pct=0.75):
-        if self.relationship_rank == 0:
-            if trust_level < 1:
-                trust = 'a stranger'
-            elif trust_level < 10:
-                trust = 'an acquaintance'
-            elif trust_level < 50:
-                trust = 'a friend'
-            elif trust_level >= 50:
-                trust = 'a close friend'
-        elif self.relationship_rank == 4:
-            trust = 'a lover'
-        elif self.relationship_rank > 0:
-            trust = 'a friend'
-        elif self.relationship_rank < 0:
-            trust = 'an enemy'
-        if len(conversation_summary) > 0:
-            conversation_summary = f"Below is a summary for each of your previous conversations:\n\n{conversation_summary}"
-
+    def create_context(self, prompt, location='Skyrim', time='12', active_characters=None, token_limit=4096, radiant_dialogue='false', trust_level=0, conversation_summary='', prompt_limit_pct=0.75, convo_id=uuid.uuid4()):
+        trust = utils.get_trust_desc(trust_level if trust_level > 0 else self.memory.conversation_count(self.info['name']), self.relationship_rank)
+    
         time_group = utils.get_time_group(time)
 
         keys = list(active_characters.keys())
@@ -97,7 +88,7 @@ class Character:
                 time=time, 
                 time_group=time_group, 
                 language=self.language, 
-                conversation_summary=conversation_summary
+                conversation_summary=conversation_summary,
             )
         else: # Multi NPC prompt
             if radiant_dialogue == 'false': # don't mention player if radiant dialogue
@@ -165,9 +156,8 @@ class Character:
         logging.info(character_desc)
         context = [{"role": "system", "content": character_desc}]
         return context
-        
 
-    def save_conversation(self, encoding, messages, tokens_available, llm, summary=None, summary_limit_pct=0.45):
+    def save_conversation(self, encoding, messages, tokens_available, llm, summary=None, summary_limit_pct=0.45, convo_id=uuid.uuid4()):
         if self.is_generic_npc:
             logging.info('A summary will not be saved for this generic NPC.')
             return None
@@ -245,10 +235,11 @@ class Character:
         return new_conversation_summary
     
 
-    def summarize_conversation(self, conversation, llm, prompt=None):
+    def summarize_conversation(self, conversation, llm, min_length=6, is_fragment=False, prompt=None):
         summary = ''
-        if len(conversation) > 5:
-            conversation = conversation[3:-2] # drop the context (0) hello (1,2) and "Goodbye." (-2, -1) lines
+        if len(conversation) >= min_length:
+            if not is_fragment:
+                conversation = conversation[3:-2] # drop the context (0) hello (1,2) and "Goodbye." (-2, -1) lines
             if prompt == None:
                 prompt = f"You are tasked with summarizing the conversation between {self.name} (the assistant) and the player (the user) / other characters. These conversations take place in Skyrim. It is not necessary to comment on any mixups in communication such as mishearings. Text contained within asterisks state in-game events. Please summarize the conversation into a single paragraph in {self.language}."
             context = [{"role": "system", "content": prompt}]
