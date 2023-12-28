@@ -95,7 +95,7 @@ async def main():
                 conversation_started_radiant = radiant_dialogue
             
             context = character.set_context(config.prompt, location, in_game_time, characters.active_characters, token_limit, radiant_dialogue, convo_id)
-            memories = memory.recall(convo_id, character, location, in_game_time, messages=context)
+            memory.recall(convo_id, character, location, in_game_time, messages=context)
             logging.info(f"Memory updated prompt: {context}")
             tokens_available = token_limit - chat_response.num_tokens_from_messages(context, model=config.llm)
             
@@ -103,14 +103,14 @@ async def main():
             if radiant_dialogue == "false":
                 # initiate conversation with character
                 try:
-                    messages = asyncio.run(get_response(f"{language_info['hello']} {character.name}.", context, synthesizer, characters, radiant_dialogue))
+                    messages = await get_response(f"{language_info['hello']} {character.name}.", context, synthesizer, characters, radiant_dialogue)
                 except tts.VoiceModelNotFound:
                     game_state_manager.write_game_info('_mantella_end_conversation', 'True')
                     logging.info('Restarting...')
                     # if debugging and character name not found, exit here to avoid endless loop
                     if (config.debug_mode == '1') & (config.debug_character_name != 'None'):
                         sys.exit(0)
-                continue
+                    continue
 
             # debugging variable
             say_goodbye = False
@@ -156,6 +156,7 @@ async def main():
                     if radiant_dialogue == "false":
                         # add greeting from newly added NPC to help the LLM understand that this NPC has joined the conversation
                         messages_wo_system_prompt[last_assistant_idx]['content'] += f"\n{character.name}: {language_info['hello']}."
+
                     new_context = character.set_context(config.multi_npc_prompt, location, in_game_time, characters.active_characters, token_limit, radiant_dialogue, convo_id)
 
                     # if not radiant dialogue format
@@ -173,64 +174,60 @@ async def main():
                         conversation_started_radiant = "false"
                         messages_wo_system_prompt = messages[1:]
 
-                # check if radiant dialogue has switched to multi NPC
-                with open(f'{config.game_path}/_mantella_radiant_dialogue.txt', 'r', encoding='utf-8') as f:
-                    radiant_dialogue = f.readline().strip().lower()
-                
-                transcript_cleaned = ''
-                transcribed_text = None
-                if conversation_ended.lower() != 'true':
-                    transcribed_text, say_goodbye = transcriber.get_player_response(say_goodbye, radiant_dialogue)
+                    # check if radiant dialogue has switched to multi NPC
+                    with open(f'{config.game_path}/_mantella_radiant_dialogue.txt', 'r', encoding='utf-8') as f:
+                        radiant_dialogue = f.readline().strip().lower()
+                    
+                    transcript_cleaned = ''
+                    transcribed_text = None
+                    if conversation_ended.lower() != 'true':
+                        transcribed_text, say_goodbye = transcriber.get_player_response(say_goodbye, radiant_dialogue)
 
-                game_state_manager.write_game_info('_mantella_player_input', transcribed_text)
+                        game_state_manager.write_game_info('_mantella_player_input', transcribed_text)
 
-                transcript_cleaned = utils.clean_text(transcribed_text)
+                        transcript_cleaned = utils.clean_text(transcribed_text)
 
-                # if multi NPC conversation, add "Player:" to beginning of output to clarify to the LLM who is speaking
-                if (characters.active_character_count() > 1) and (radiant_dialogue != "true"):
-                    transcribed_text = 'Player: ' + transcribed_text
-                # add in-game events to player's response
-                transcribed_text = game_state_manager.update_game_events(transcribed_text)
-                logging.info(f"Text passed to NPC: {transcribed_text}")
-                last_character_comment = ''
-                if len(messages) > 0:
-                    for _, message in enumerate(messages):
-                        if message['role'] == 'assistant':
-                            last_character_comment = message['content']
-                memory.memorize(convo_id, character, location, in_game_time, character_comment=last_character_comment, player_comment=transcript_cleaned)
+                        # if multi NPC conversation, add "Player:" to beginning of output to clarify to the LLM who is speaking
+                        if (characters.active_character_count() > 1) and (radiant_dialogue != "true"):
+                            transcribed_text = 'Player: ' + transcribed_text
+                        # add in-game events to player's response
+                        transcribed_text = game_state_manager.update_game_events(transcribed_text)
+                        logging.info(f"Text passed to NPC: {transcribed_text}")
 
-                # check if conversation has ended again after player input
-                with open(f'{config.game_path}/_mantella_end_conversation.txt', 'r', encoding='utf-8') as f:
-                    conversation_ended = f.readline().strip()
+                    memory.memorize(convo_id, character, location, in_game_time, messages)
 
-                # check if user is ending conversation
-                if (transcriber.activation_name_exists(transcript_cleaned, config.end_conversation_keyword.lower())) or (transcriber.activation_name_exists(transcript_cleaned, 'good bye')) or (conversation_ended.lower() == 'true'):
-                    summary = game_state_manager.end_conversation(conversation_ended, config, encoding, synthesizer, chat_manager, messages, characters.active_characters, tokens_available)
-                    # Memorize the conversation summary to all active characters in conversation
-                    for character in characters.active_characters.values():
-                        memory.memorize(convo_id, character, location, in_game_time, summary=summary, type='summary')
-                    break
+                    # check if conversation has ended again after player input
+                    with open(f'{config.game_path}/_mantella_end_conversation.txt', 'r', encoding='utf-8') as f:
+                        conversation_ended = f.readline().strip()
 
-                # Let the player know that they were heard
-                #audio_file = synthesizer.synthesize(character.info['voice_model'], character.info['skyrim_voice_folder'], 'Beep boop. Let me think.')
-                #chat_manager.save_files_to_voice_folders([audio_file, 'Beep boop. Let me think.'])
+                    # check if user is ending conversation
+                    if (transcriber.activation_name_exists(transcript_cleaned, config.end_conversation_keyword.lower())) or (transcriber.activation_name_exists(transcript_cleaned, 'good bye')) or (conversation_ended.lower() == 'true'):
+                        summary = game_state_manager.end_conversation(conversation_ended, config, encoding, synthesizer, chat_manager, messages, characters.active_characters, tokens_available)
+                        # Memorize the conversation summary to all active characters in conversation
+                        for character in characters.active_characters.values():
+                            memory.memorize(convo_id, character, location, in_game_time, summary=summary, type='summary')
+                        break
 
-                # add in-game events and memories to player's response
-                memory.recall(convo_id, character, location, in_game_time, messages=messages)
-                transcribed_text = game_state_manager.update_game_events(transcribed_text)
-                logging.info(f"Memory updated prompt: {messages[0]['content']}")
-                logging.info(f"Text passed to NPC: {transcribed_text}")
+                    # Let the player know that they were heard
+                    #audio_file = synthesizer.synthesize(character.info['voice_model'], character.info['skyrim_voice_folder'], 'Beep boop. Let me think.')
+                    #chat_manager.save_files_to_voice_folders([audio_file, 'Beep boop. Let me think.'])
 
-                # get character's response
-                if transcribed_text:
-                    messages = await get_response(transcribed_text, messages, synthesizer, characters, radiant_dialogue)
+                    # add in-game events and memories to player's response
+                    memory.recall(convo_id, character, location, in_game_time, messages=messages)
+                    transcribed_text = game_state_manager.update_game_events(transcribed_text)
+                    logging.info(f"Memory updated prompt: {messages[0]['content']}")
+                    logging.info(f"Text passed to NPC: {transcribed_text}")
 
-                # if the conversation is becoming too long, save the conversation to memory and reload
-                current_conversation_limit_pct = 0.45
-                if chat_response.num_tokens_from_messages(messages[1:], model=config.llm) > (round(tokens_available*current_conversation_limit_pct,0)):
-                    conversation_summary_file, context, messages = game_state_manager.reload_conversation(config, encoding, synthesizer, chat_manager, messages, characters.active_characters, tokens_available, token_limit, location, in_game_time, convo_id)
-                    # continue conversation
-                    messages =  await get_response(f"{character.name}?", context, synthesizer, characters, radiant_dialogue)
+                    # get character's response
+                    if transcribed_text:
+                        messages = await get_response(transcribed_text, messages, synthesizer, characters, radiant_dialogue)
+
+                    # if the conversation is becoming too long, save the conversation to memory and reload
+                    current_conversation_limit_pct = 0.45
+                    if chat_response.num_tokens_from_messages(messages[1:], model=config.llm) > (round(tokens_available*current_conversation_limit_pct,0)):
+                        conversation_summary_file, context, messages = game_state_manager.reload_conversation(config, encoding, synthesizer, chat_manager, messages, characters.active_characters, tokens_available, token_limit, location, in_game_time, convo_id)
+                        # continue conversation
+                        messages =  await get_response(f"{character.name}?", context, synthesizer, characters, radiant_dialogue)
 
     except Exception as e:
         try:

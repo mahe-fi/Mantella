@@ -137,7 +137,7 @@ class GameStateManager:
         
         in_game_time = '12'
         self.write_game_info('_mantella_in_game_time', in_game_time)
-
+        
         return character_name, character_id, location, in_game_time
     
 

@@ -102,7 +102,7 @@ class Memory:
         mem = "You have never met the player before"
         if len(memories) > 0 :
             mem = 'Below are your memories from past conversations:\n\n%s\n\n' % "\n\n".join(memories)
-        context = character.create_context(self.config.prompt, location, time, {character.name: character}, self.config.custom_token_count, self.conversation_count(character.info['name']), mem, convo_id=convo_id)
+        context = character.create_context(self.config.prompt, location, time, {character.name: character}, self.config.custom_token_count, trust_level=self.conversation_count(character.info['name']), conversation_summary=mem, convo_id=convo_id)
         messages[0]['content'] = context[0]['content']
         
     def conversation_count(self, character_name):
