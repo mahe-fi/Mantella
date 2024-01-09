@@ -213,16 +213,24 @@ async def main():
                     # Let the player know that they were heard
                     #audio_file = synthesizer.synthesize(character.info['voice_model'], character.info['skyrim_voice_folder'], 'Beep boop. Let me think.')
                     #chat_manager.save_files_to_voice_folders([audio_file, 'Beep boop. Let me think.'])
-
-                    # add in-game events and memories to player's response
+                                        # add in-game events and memories to player's response
                     memory.recall(convo_id, character, location, in_game_time, messages=messages)
                     transcribed_text = game_state_manager.update_game_events(transcribed_text)
                     logging.info(f"Memory updated prompt: {messages[0]['content']}")
                     logging.info(f"Text passed to NPC: {transcribed_text}")
 
+
+                    # check if NPC is in combat to change their voice tone (if one on one conversation)
+                    if characters.active_character_count() == 1:
+                        aggro = game_state_manager.load_data_when_available('_mantella_actor_is_in_combat', '').lower()
+                        if aggro == 'true':
+                            chat_manager.active_character.is_in_combat = 1
+                        else:
+                            chat_manager.active_character.is_in_combat = 0
+
                     # get character's response
                     if transcribed_text:
-                        messages = await get_response(transcribed_text, messages, synthesizer, characters, radiant_dialogue)
+                        messages = await (get_response(transcribed_text, messages, synthesizer, characters, radiant_dialogue))
 
                     # if the conversation is becoming too long, save the conversation to memory and reload
                     current_conversation_limit_pct = 0.45
