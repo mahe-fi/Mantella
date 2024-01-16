@@ -415,7 +415,7 @@ class GameStateManager:
         prompt = config.prompt
         if len(keys) > 1:
             prompt = config.multi_npc_prompt
-        context = latest_character.set_context(prompt, location, in_game_time, active_characters, token_limit, convo_id=convo_id)
+        context = latest_character.set_context(prompt, location, in_game_time, active_characters, token_limit, 'false', convo_id=convo_id)
 
         # add previous few back and forths from last conversation
         messages_wo_system_prompt = messages[1:]
