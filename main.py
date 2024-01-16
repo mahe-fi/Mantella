@@ -83,7 +83,7 @@ async def main():
                 logging.info('Restarting...')
                 continue
 
-            character = character_manager.Character(character_info, language_info['language'], is_generic_npc, memory)
+            character = character_manager.Character(character_info, language_info['language'], is_generic_npc, config.memory_prompt, config.resummarize_prompt, memory)
             synthesizer.change_voice(character.voice_model)
             chat_manager.active_character = character
             chat_manager.character_num = 0
@@ -151,7 +151,7 @@ async def main():
                             if characters.active_character_count() == 1:
                                 message['content'] = character.name+': '+message['content']
 
-                    character = character_manager.Character(character_info, language_info['language'], is_generic_npc, memory)
+                    character = character_manager.Character(character_info, language_info['language'], is_generic_npc, config.memory_prompt, config.resummarize_prompt, memory)
                     characters.active_characters[character.name] = character
                     # if the NPC is from a mod, create the NPC's voice folder and exit Mantella
                     chat_manager.setup_voiceline_save_location(character_info['in_game_voice_model'])
