@@ -159,13 +159,7 @@ async def main():
                     # if not radiant dialogue format
                     if radiant_dialogue == "false":
                         # add greeting from newly added NPC to help the LLM understand that this NPC has joined the conversation
-                        for active_character in characters.active_characters:
-                            if active_character != character.name: 
-                                # existing NPCs greet the new NPC
-                                messages_wo_system_prompt[last_assistant_idx]['content'] += f"\n{active_character}: {language_info['hello']} {character.name}."
-                            else: 
-                                # new NPC greets the existing NPCs
-                                messages_wo_system_prompt[last_assistant_idx]['content'] += f"\n{active_character}: {language_info['hello']}."
+                        messages_wo_system_prompt[last_assistant_idx]['content'] += f"\n{character.name}: {language_info['hello']}."
 
                     new_context = character.set_context(config.multi_npc_prompt, location, in_game_time, characters.active_characters, token_limit, radiant_dialogue, convo_id)
 
@@ -221,7 +215,10 @@ async def main():
                     # Let the player know that they were heard
                     #audio_file = synthesizer.synthesize(character.info['voice_model'], character.info['skyrim_voice_folder'], 'Beep boop. Let me think.')
                     #chat_manager.save_files_to_voice_folders([audio_file, 'Beep boop. Let me think.'])
-                                        # add in-game events and memories to player's response
+                    # Let the player know that they were heard
+                    #audio_file = synthesizer.synthesize(character.info['voice_model'], character.info['skyrim_voice_folder'], 'Beep boop. Let me think.')
+                    #chat_manager.save_files_to_voice_folders([audio_file, 'Beep boop. Let me think.'])
+                    # add in-game events and memories to player's response
                     memory.recall(convo_id, character, location, in_game_time, messages=messages)
                     transcribed_text = game_state_manager.update_game_events(transcribed_text)
                     logging.info(f"Memory updated prompt: {messages[0]['content']}")
